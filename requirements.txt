@@ -1,0 +1,9 @@
+numba==0.48.0
+numpy==1.19.5
+open3d==0.14.1
+opencv_python==4.5.5.62
+pointpillars.egg==info
+PyYAML==6.0
+setuptools==58.0.4
+torch==1.8.1+cu111
+tqdm==4.62.3
