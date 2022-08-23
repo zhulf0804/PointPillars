@@ -26,6 +26,13 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
 ![](./figures/pc_pred_000134.png)
 ![](./figures/img_3dbbox_000134.png)
 
+## [Compile] 
+
+```
+cd ops
+python setup.py develop
+```
+
 ## [Datasets]
 
 1. Download
@@ -73,13 +80,6 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
         |- kitti_dbinfos_train.pkl
     
     ```
-
-## [Compile] 
-
-```
-cd ops
-python setup.py develop
-```
 
 ## [Training]
 

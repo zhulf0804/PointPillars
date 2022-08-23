@@ -183,7 +183,7 @@ class Neck(nn.Module):
 
 
 class Head(nn.Module):
-    def __init__(self, in_channel, n_anchors=6, n_classes=3):
+    def __init__(self, in_channel, n_anchors, n_classes):
         super().__init__()
         
         self.conv_cls = nn.Conv2d(in_channel, n_anchors*n_classes, 1)
@@ -240,7 +240,7 @@ class PointPillars(nn.Module):
         self.neck = Neck(in_channels=[64, 128, 256], 
                          upsample_strides=[1, 2, 4], 
                          out_channels=[128, 128, 128])
-        self.head = Head(in_channel=384)
+        self.head = Head(in_channel=384, n_anchors=2*nclasses, n_classes=nclasses)
         
         # anchors
         ranges = [[0, -39.68, -0.6, 69.12, 39.68, -0.6],

@@ -174,7 +174,7 @@ def anchor_target(batched_anchors, batched_gt_bboxes, batched_gt_labels, assigne
             neg_flag = assigned_gt_inds == 0
             # 1. anchor labels
             assigned_gt_labels = torch.zeros_like(cur_anchors[:, 0], dtype=torch.long) + nclasses # -1 is not optimal, for some bboxes are with labels -1
-            assigned_gt_labels[pos_flag] = gt_labels[assigned_gt_inds[pos_flag] - 1]
+            assigned_gt_labels[pos_flag] = gt_labels[assigned_gt_inds[pos_flag] - 1].long()
             assigned_gt_labels_weights = torch.zeros_like(cur_anchors[:, 0])
             assigned_gt_labels_weights[pos_flag] = 1
             assigned_gt_labels_weights[neg_flag] = 1

@@ -33,6 +33,7 @@ def judge_difficulty(annotation_dict):
 
 
 def create_data_info_pkl(data_root, data_type, prefix, label=True, db=False):
+    sep = os.path.sep
     print(f"Processing {data_type} data..")
     ids_file = os.path.join(CUR, 'dataset', 'ImageSets', f'{data_type}.txt')
     with open(ids_file, 'r') as f:
@@ -50,13 +51,13 @@ def create_data_info_pkl(data_root, data_type, prefix, label=True, db=False):
         img_path = os.path.join(data_root, split, 'image_2', f'{id}.png')
         lidar_path = os.path.join(data_root, split, 'velodyne', f'{id}.bin')
         calib_path = os.path.join(data_root, split, 'calib', f'{id}.txt') 
-        cur_info_dict['velodyne_path'] = '/'.join(lidar_path.split('/')[-3:])
+        cur_info_dict['velodyne_path'] = sep.join(lidar_path.split(sep)[-3:])
 
         img = cv2.imread(img_path)
         image_shape = img.shape[:2]
         cur_info_dict['image'] = {
             'image_shape': image_shape,
-            'image_path': '/'.join(img_path.split('/')[-3:]), 
+            'image_path': sep.join(img_path.split(sep)[-3:]), 
             'image_idx': int(id),
         }
 
