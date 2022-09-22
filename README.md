@@ -104,7 +104,7 @@ cd PointPillars/
 python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path 
 
 # 2. infer and visualize point cloud detection and gound truth.
-python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_path your_calib_path
+python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_path your_calib_path  --gt_path your_gt_path
 
 # 3. infer and visualize point cloud & image detection
 python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_path your_calib_path --img_path your_img_path
