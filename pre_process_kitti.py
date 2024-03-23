@@ -29,7 +29,7 @@ def judge_difficulty(annotation_dict):
             if h > MIN_HEIGHTS[i] and o <= MAX_OCCLUSION[i] and t <= MAX_TRUNCATION[i]:
                 difficulty = i
         difficultys.append(difficulty)
-    return np.array(difficultys, dtype=np.int)
+    return np.array(difficultys, dtype=np.int32)
 
 
 def create_data_info_pkl(data_root, data_type, prefix, label=True, db=False):

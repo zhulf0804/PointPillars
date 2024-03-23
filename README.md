@@ -4,7 +4,7 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
 
 - It can be run without installing [Spconv](https://github.com/traveller59/spconv), [mmdet](https://github.com/open-mmlab/mmdetection) or [mmdet3d](https://github.com/open-mmlab/mmdetection3d). 
 - Only one detection network (PointPillars) was implemented in this repo, so the code may be more easy to read. 
-- Sincere thanks for the great open-souce architectures [mmcv](https://github.com/open-mmlab/mmcv), [mmdet](https://github.com/open-mmlab/mmdetection) and [mmdet3d](https://github.com/open-mmlab/mmdetection3d), which helps me to learn 3D detetion and implement this repo.
+- Sincere thanks for the great open-source architectures [mmcv](https://github.com/open-mmlab/mmcv), [mmdet](https://github.com/open-mmlab/mmdetection) and [mmdet3d](https://github.com/open-mmlab/mmdetection3d), which helps me to learn 3D detetion and implement this repo.
 
 ## mAP on KITTI validation set (Easy, Moderate, Hard)
 
@@ -48,7 +48,7 @@ python setup.py develop
         |- testing
             |- calib (#7518 .txt)
             |- image_2 (#7518 .png)
-            |- velodyne (#7418 .bin)
+            |- velodyne (#7518 .bin)
     ```
 
 2. Pre-process KITTI datasets First
@@ -78,7 +78,6 @@ python setup.py develop
         |- kitti_infos_trainval.pkl
         |- kitti_infos_test.pkl
         |- kitti_dbinfos_train.pkl
-    
     ```
 
 ## [Training]
@@ -110,16 +109,27 @@ python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_pa
 python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_path your_calib_path --img_path your_img_path
 
 
-e.g. [infer on val set 000134]
+e.g. 
+a. [infer on val set 000134]
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path /home/lifa/data/KITTI/training/velodyne_reduced/000134.bin
+python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/val/000134.bin
 
 or
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path /home/lifa/data/KITTI/training/velodyne_reduced/000134.bin --calib_path /home/lifa/data/KITTI/training/calib/000134.txt --img_path /home/lifa/data/KITTI/training/image_2/000134.png --gt_path /home/lifa/data/KITTI/training/label_2/000134.txt
+python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/val/000134.bin \ 
+               --calib_path dataset/demo_data/val/000134.txt --img_path dataset/demo_data/val/000134.png \ 
+               --gt_path dataset/demo_data/val/000134_gt.txt
 
+b. [infer on test set 000002]
+
+python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/test/000002.bin
+
+or 
+
+python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/test/000002.bin \ 
+               --calib_path dataset/demo_data/test/000002.txt --img_path dataset/demo_data/test/000002.png
 ```
 
 ## Acknowledements
 
-Thanks for the open souce code [mmcv](https://github.com/open-mmlab/mmcv), [mmdet](https://github.com/open-mmlab/mmdetection) and [mmdet3d](https://github.com/open-mmlab/mmdetection3d).
+Thanks for the open source code [mmcv](https://github.com/open-mmlab/mmcv), [mmdet](https://github.com/open-mmlab/mmdetection) and [mmdet3d](https://github.com/open-mmlab/mmdetection3d).

@@ -38,14 +38,14 @@ def read_calib(file_path, extend_matrix=True):
     with open(file_path, 'r') as f:
         lines = f.readlines()
     lines = [line.strip() for line in lines]
-    P0 = np.array([item for item in lines[0].split(' ')[1:]], dtype=np.float).reshape(3, 4)
-    P1 = np.array([item for item in lines[1].split(' ')[1:]], dtype=np.float).reshape(3, 4)
-    P2 = np.array([item for item in lines[2].split(' ')[1:]], dtype=np.float).reshape(3, 4)
-    P3 = np.array([item for item in lines[3].split(' ')[1:]], dtype=np.float).reshape(3, 4)
+    P0 = np.array([item for item in lines[0].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
+    P1 = np.array([item for item in lines[1].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
+    P2 = np.array([item for item in lines[2].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
+    P3 = np.array([item for item in lines[3].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
 
-    R0_rect = np.array([item for item in lines[4].split(' ')[1:]], dtype=np.float).reshape(3, 3)
-    Tr_velo_to_cam = np.array([item for item in lines[5].split(' ')[1:]], dtype=np.float).reshape(3, 4)
-    Tr_imu_to_velo = np.array([item for item in lines[6].split(' ')[1:]], dtype=np.float).reshape(3, 4)
+    R0_rect = np.array([item for item in lines[4].split(' ')[1:]], dtype=np.float32).reshape(3, 3)
+    Tr_velo_to_cam = np.array([item for item in lines[5].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
+    Tr_imu_to_velo = np.array([item for item in lines[6].split(' ')[1:]], dtype=np.float32).reshape(3, 4)
 
     if extend_matrix:
         P0 = np.concatenate([P0, np.array([[0, 0, 0, 1]])], axis=0)
@@ -78,13 +78,13 @@ def read_label(file_path):
     lines = [line.strip().split(' ') for line in lines]
     annotation = {}
     annotation['name'] = np.array([line[0] for line in lines])
-    annotation['truncated'] = np.array([line[1] for line in lines], dtype=np.float)
-    annotation['occluded'] = np.array([line[2] for line in lines], dtype=np.int)
-    annotation['alpha'] = np.array([line[3] for line in lines], dtype=np.float)
-    annotation['bbox'] = np.array([line[4:8] for line in lines], dtype=np.float)
-    annotation['dimensions'] = np.array([line[8:11] for line in lines], dtype=np.float)[:, [2, 0, 1]] # hwl -> camera coordinates (lhw)
-    annotation['location'] = np.array([line[11:14] for line in lines], dtype=np.float)
-    annotation['rotation_y'] = np.array([line[14] for line in lines], dtype=np.float)
+    annotation['truncated'] = np.array([line[1] for line in lines], dtype=np.float32)
+    annotation['occluded'] = np.array([line[2] for line in lines], dtype=np.int32)
+    annotation['alpha'] = np.array([line[3] for line in lines], dtype=np.float32)
+    annotation['bbox'] = np.array([line[4:8] for line in lines], dtype=np.float32)
+    annotation['dimensions'] = np.array([line[8:11] for line in lines], dtype=np.float32)[:, [2, 0, 1]] # hwl -> camera coordinates (lhw)
+    annotation['location'] = np.array([line[11:14] for line in lines], dtype=np.float32)
+    annotation['rotation_y'] = np.array([line[14] for line in lines], dtype=np.float32)
     
     return annotation
 
