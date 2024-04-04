@@ -86,6 +86,7 @@ class PillarEncoder(nn.Module):
         mask = mask.permute(1, 0).contiguous()  # (p1 + p2 + ... + pb, num_points)
         features *= mask[:, :, None]
 
+
         # 5. embedding
         features = features.permute(0, 2, 1).contiguous() # (p1 + p2 + ... + pb, 9, num_points)
         features = F.relu(self.bn(self.conv(features)))  # (p1 + p2 + ... + pb, out_channels, num_points)
@@ -94,14 +95,15 @@ class PillarEncoder(nn.Module):
         # 6. pillar scatter
         batched_canvas = []
         bs = coors_batch[-1, 0] + 1
+        # Note: only batch_size=1 is supported for TensorRT 
         for i in range(bs):
-            cur_coors_idx = coors_batch[:, 0] == i
-            cur_coors = coors_batch[cur_coors_idx, :]
-            cur_features = pooling_features[cur_coors_idx]
-
-            canvas = torch.zeros((self.x_l, self.y_l, self.out_channel), dtype=torch.float32, device=device)
-            canvas[cur_coors[:, 1], cur_coors[:, 2]] = cur_features
-            canvas = canvas.permute(2, 1, 0).contiguous()
+            cur_coors = coors_batch
+            cur_features = pooling_features
+            canvas = torch.zeros((self.x_l * self.y_l, self.out_channel), dtype=torch.float32, device=device)
+            cur_coors_flat = cur_coors[:, 2] * self.x_l + cur_coors[:, 1]  ## why select here.
+            canvas[cur_coors_flat] = cur_features
+            canvas = canvas.view(self.y_l, self.x_l, self.out_channel)
+            canvas = canvas.permute(2, 0, 1).contiguous()
             batched_canvas.append(canvas)
         batched_canvas = torch.stack(batched_canvas, dim=0) # (bs, in_channel, self.y_l, self.x_l)
         return batched_canvas
@@ -217,19 +219,32 @@ class Head(nn.Module):
         return bbox_cls_pred, bbox_pred, bbox_dir_cls_pred
 
 
-class PointPillars(nn.Module):
+class PointPillarsPre(nn.Module):
     def __init__(self,
-                 nclasses=3, 
                  voxel_size=[0.16, 0.16, 4],
                  point_cloud_range=[0, -39.68, -3, 69.12, 39.68, 1],
                  max_num_points=32,
                  max_voxels=(16000, 40000)):
         super().__init__()
-        self.nclasses = nclasses
         self.pillar_layer = PillarLayer(voxel_size=voxel_size, 
                                         point_cloud_range=point_cloud_range, 
                                         max_num_points=max_num_points, 
                                         max_voxels=max_voxels)
+    def forward(self, batched_pts):
+        # batched_pts: list[tensor] -> pillars: (p1 + p2 + ... + pb, num_points, c), 
+        #                              coors_batch: (p1 + p2 + ... + pb, 1 + 3), 
+        #                              num_points_per_pillar: (p1 + p2 + ... + pb, ), (b: batch size)
+        pillars, coors_batch, npoints_per_pillar = self.pillar_layer(batched_pts)
+        return pillars, coors_batch, npoints_per_pillar
+
+
+class PointPillarsCore(nn.Module):
+    def __init__(self,
+                 nclasses=3, 
+                 voxel_size=[0.16, 0.16, 4],
+                 point_cloud_range=[0, -39.68, -3, 69.12, 39.68, 1]):
+        super().__init__()
+        self.nclasses = nclasses
         self.pillar_encoder = PillarEncoder(voxel_size=voxel_size, 
                                             point_cloud_range=point_cloud_range, 
                                             in_channel=9, 
@@ -261,9 +276,6 @@ class PointPillars(nn.Module):
 
         # val and test
         self.nms_pre = 100
-        self.nms_thr = 0.01
-        self.score_thr = 0.1
-        self.max_num = 50
 
     def get_predicted_bboxes_single(self, bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, anchors):
         '''
@@ -294,62 +306,7 @@ class PointPillars(nn.Module):
 
         # 2. decode predicted offsets to bboxes
         bbox_pred = anchors2bboxes(anchors, bbox_pred)
-
-        # 3. nms
-        bbox_pred2d_xy = bbox_pred[:, [0, 1]]
-        bbox_pred2d_lw = bbox_pred[:, [3, 4]]
-        bbox_pred2d = torch.cat([bbox_pred2d_xy - bbox_pred2d_lw / 2,
-                                 bbox_pred2d_xy + bbox_pred2d_lw / 2,
-                                 bbox_pred[:, 6:]], dim=-1) # (n_anchors, 5)
-
-        ret_bboxes, ret_labels, ret_scores = [], [], []
-        for i in range(self.nclasses):
-            # 3.1 filter bboxes with scores below self.score_thr
-            cur_bbox_cls_pred = bbox_cls_pred[:, i]
-            score_inds = cur_bbox_cls_pred > self.score_thr
-            if score_inds.sum() == 0:
-                continue
-
-            cur_bbox_cls_pred = cur_bbox_cls_pred[score_inds]
-            cur_bbox_pred2d = bbox_pred2d[score_inds]
-            cur_bbox_pred = bbox_pred[score_inds]
-            cur_bbox_dir_cls_pred = bbox_dir_cls_pred[score_inds]
-            
-            # 3.2 nms core
-            keep_inds = nms_cuda(boxes=cur_bbox_pred2d, 
-                                 scores=cur_bbox_cls_pred, 
-                                 thresh=self.nms_thr, 
-                                 pre_maxsize=None, 
-                                 post_max_size=None)
-
-            cur_bbox_cls_pred = cur_bbox_cls_pred[keep_inds]
-            cur_bbox_pred = cur_bbox_pred[keep_inds]
-            cur_bbox_dir_cls_pred = cur_bbox_dir_cls_pred[keep_inds]
-            cur_bbox_pred[:, -1] = limit_period(cur_bbox_pred[:, -1].detach().cpu(), 1, np.pi).to(cur_bbox_pred) # [-pi, 0]
-            cur_bbox_pred[:, -1] += (1 - cur_bbox_dir_cls_pred) * np.pi
-
-            ret_bboxes.append(cur_bbox_pred)
-            ret_labels.append(torch.zeros_like(cur_bbox_pred[:, 0], dtype=torch.long) + i)
-            ret_scores.append(cur_bbox_cls_pred)
-
-        # 4. filter some bboxes if bboxes number is above self.max_num
-        if len(ret_bboxes) == 0:
-            return [], [], []
-        ret_bboxes = torch.cat(ret_bboxes, 0)
-        ret_labels = torch.cat(ret_labels, 0)
-        ret_scores = torch.cat(ret_scores, 0)
-        if ret_bboxes.size(0) > self.max_num:
-            final_inds = ret_scores.topk(self.max_num)[1]
-            ret_bboxes = ret_bboxes[final_inds]
-            ret_labels = ret_labels[final_inds]
-            ret_scores = ret_scores[final_inds]
-        result = {
-            'lidar_bboxes': ret_bboxes.detach().cpu().numpy(),
-            'labels': ret_labels.detach().cpu().numpy(),
-            'scores': ret_scores.detach().cpu().numpy()
-        }
-        return result
-
+        return bbox_pred, bbox_cls_pred, bbox_dir_cls_pred
 
     def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, batched_anchors):
         '''
@@ -365,20 +322,15 @@ class PointPillars(nn.Module):
         results = []
         bs = bbox_cls_pred.size(0)
         for i in range(bs):
-            result = self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
-                                                      bbox_pred=bbox_pred[i], 
-                                                      bbox_dir_cls_pred=bbox_dir_cls_pred[i], 
-                                                      anchors=batched_anchors[i])
-            results.append(result)
+            bbox_pred, bbox_cls_pred, bbox_dir_cls_pred = \
+                                self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
+                                                                 bbox_pred=bbox_pred[i], 
+                                                                 bbox_dir_cls_pred=bbox_dir_cls_pred[i], 
+                                                                 anchors=batched_anchors[i])
+            results.append([bbox_pred, bbox_cls_pred, bbox_dir_cls_pred])
         return results
 
-    def forward(self, batched_pts, mode='test', batched_gt_bboxes=None, batched_gt_labels=None):
-        batch_size = len(batched_pts)
-        # batched_pts: list[tensor] -> pillars: (p1 + p2 + ... + pb, num_points, c), 
-        #                              coors_batch: (p1 + p2 + ... + pb, 1 + 3), 
-        #                              num_points_per_pillar: (p1 + p2 + ... + pb, ), (b: batch size)
-        pillars, coors_batch, npoints_per_pillar = self.pillar_layer(batched_pts)
-
+    def forward(self, pillars, coors_batch, npoints_per_pillar, mode='test', batched_gt_bboxes=None, batched_gt_labels=None):
         # pillars: (p1 + p2 + ... + pb, num_points, c), c = 4
         # coors_batch: (p1 + p2 + ... + pb, 1 + 3)
         # npoints_per_pillar: (p1 + p2 + ... + pb, )
@@ -400,6 +352,7 @@ class PointPillars(nn.Module):
         device = bbox_cls_pred.device
         feature_map_size = torch.tensor(list(bbox_cls_pred.size()[-2:]), device=device)
         anchors = self.anchors_generator.get_multi_anchors(feature_map_size)
+        batch_size = pillar_features.shape[0]
         batched_anchors = [anchors for _ in range(batch_size)]
 
         if mode == 'train':
@@ -425,3 +378,76 @@ class PointPillars(nn.Module):
             return results
         else:
             raise ValueError   
+
+
+class PointPillarsPos(nn.Module):
+    def __init__(self, nclasses=3):
+        super().__init__()
+        self.nclasses = nclasses
+        self.nms_thr = 0.01
+        self.score_thr = 0.1
+        self.max_num = 50
+    
+    def nms_filter(self, bbox_pred, bbox_cls_pred, bbox_dir_cls_pred):
+        # 3. nms
+        bbox_pred2d_xy = bbox_pred[:, [0, 1]]
+        bbox_pred2d_lw = bbox_pred[:, [3, 4]]
+        bbox_pred2d = torch.cat([bbox_pred2d_xy - bbox_pred2d_lw / 2,
+                                bbox_pred2d_xy + bbox_pred2d_lw / 2,
+                                bbox_pred[:, 6:]], dim=-1) # (n_anchors, 5)
+
+        ret_bboxes, ret_labels, ret_scores = [], [], []
+        for i in range(self.nclasses):
+            # 3.1 filter bboxes with scores below self.score_thr
+            cur_bbox_cls_pred = bbox_cls_pred[:, i]
+            score_inds = cur_bbox_cls_pred > self.score_thr
+            if score_inds.sum() == 0:
+                continue
+
+            cur_bbox_cls_pred = cur_bbox_cls_pred[score_inds]
+            cur_bbox_pred2d = bbox_pred2d[score_inds]
+            cur_bbox_pred = bbox_pred[score_inds]
+            cur_bbox_dir_cls_pred = bbox_dir_cls_pred[score_inds]
+            
+            # 3.2 nms core
+            keep_inds = nms_cuda(boxes=cur_bbox_pred2d, 
+                                scores=cur_bbox_cls_pred, 
+                                thresh=self.nms_thr, 
+                                pre_maxsize=None, 
+                                post_max_size=None)
+
+            cur_bbox_cls_pred = cur_bbox_cls_pred[keep_inds]
+            cur_bbox_pred = cur_bbox_pred[keep_inds]
+            cur_bbox_dir_cls_pred = cur_bbox_dir_cls_pred[keep_inds]
+            cur_bbox_pred[:, -1] = limit_period(cur_bbox_pred[:, -1].detach().cpu(), 1, np.pi).to(cur_bbox_pred) # [-pi, 0]
+            cur_bbox_pred[:, -1] += (1 - cur_bbox_dir_cls_pred) * np.pi
+
+            ret_bboxes.append(cur_bbox_pred)
+            ret_labels.append(torch.zeros_like(cur_bbox_pred[:, 0], dtype=torch.long) + i)
+            ret_scores.append(cur_bbox_cls_pred)
+
+        # 4. filter some bboxes if bboxes number is above self.max_num
+        if len(ret_bboxes) == 0:
+            return None
+        ret_bboxes = torch.cat(ret_bboxes, 0)
+        ret_labels = torch.cat(ret_labels, 0)
+        ret_scores = torch.cat(ret_scores, 0)
+        if ret_bboxes.size(0) > self.max_num:
+            final_inds = ret_scores.topk(self.max_num)[1]
+            ret_bboxes = ret_bboxes[final_inds]
+            ret_labels = ret_labels[final_inds]
+            ret_scores = ret_scores[final_inds]
+        pos_result = {
+            'lidar_bboxes': ret_bboxes.detach().cpu().numpy(),
+            'labels': ret_labels.detach().cpu().numpy(),
+            'scores': ret_scores.detach().cpu().numpy()
+        }
+        return pos_result
+
+    def forward(self, results):
+        pos_results = []
+        for (bbox_pred, bbox_cls_pred, bbox_dir_cls_pred) in results:
+            pos_result = self.nms_filter(bbox_pred, bbox_cls_pred, bbox_dir_cls_pred)
+            if pos_result is not None:
+                pos_results.append(pos_result) 
+        return pos_results 
