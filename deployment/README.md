@@ -1,5 +1,5 @@
 ToDo:
-- Trt Inference
+- Trt Inference (ing)
 
 ## 0. Performance comparison
 
@@ -27,14 +27,14 @@ cd PointPillars/deployment
 python pytorch2onnx.py --ckpt ../pretrained/epoch_160.pth
 ```
 
-#### 1.2 ONNX inference
+#### 1.2 (Optional) ONNX inference
 
 ```
 cd PointPillars/deployment
 python onnx_infer.py --pc_path ../dataset/demo_data/val/000134.bin --onnx_path ../pretrained/model.onnx
 ```
 
-#### 1.3 Comaprison to Pytorch inference
+#### 1.3 (Optional) Comaprison to Pytorch inference
 
 ```
 cd PointPillars/deployment
@@ -48,6 +48,11 @@ python pytorch_infer.py --ckpt ../pretrained/epoch_160.pth --pc_path ../dataset/
 
 #### 2.2 TRT inference
 ```
+cd PointPillars/deployment/trt_infer
+mkdir build 
+cd build
+cmake ..
+make
 ```
 
 
