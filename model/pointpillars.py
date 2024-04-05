@@ -301,12 +301,12 @@ class PointPillarsCore(nn.Module):
         inds = bbox_cls_pred.max(1)[0].topk(self.nms_pre)[1]
         bbox_cls_pred = bbox_cls_pred[inds]
         bbox_pred = bbox_pred[inds]
-        bbox_dir_cls_pred = bbox_dir_cls_pred[inds]
+        bbox_dir_cls_pred = bbox_dir_cls_pred[inds].float()
         anchors = anchors[inds]
 
         # 2. decode predicted offsets to bboxes
         bbox_pred = anchors2bboxes(anchors, bbox_pred)
-        return bbox_pred, bbox_cls_pred, bbox_dir_cls_pred
+        return torch.cat([bbox_pred, bbox_cls_pred, bbox_dir_cls_pred[:, None]], 1)
 
     def get_predicted_bboxes(self, bbox_cls_pred, bbox_pred, bbox_dir_cls_pred, batched_anchors):
         '''
@@ -322,12 +322,11 @@ class PointPillarsCore(nn.Module):
         results = []
         bs = bbox_cls_pred.size(0)
         for i in range(bs):
-            bbox_pred, bbox_cls_pred, bbox_dir_cls_pred = \
-                                self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
-                                                                 bbox_pred=bbox_pred[i], 
-                                                                 bbox_dir_cls_pred=bbox_dir_cls_pred[i], 
-                                                                 anchors=batched_anchors[i])
-            results.append([bbox_pred, bbox_cls_pred, bbox_dir_cls_pred])
+            result = self.get_predicted_bboxes_single(bbox_cls_pred=bbox_cls_pred[i],
+                                                      bbox_pred=bbox_pred[i], 
+                                                      bbox_dir_cls_pred=bbox_dir_cls_pred[i], 
+                                                      anchors=batched_anchors[i])
+            results.append(result)
         return results
 
     def forward(self, pillars, coors_batch, npoints_per_pillar, mode='test', batched_gt_bboxes=None, batched_gt_labels=None):
@@ -446,7 +445,8 @@ class PointPillarsPos(nn.Module):
 
     def forward(self, results):
         pos_results = []
-        for (bbox_pred, bbox_cls_pred, bbox_dir_cls_pred) in results:
+        for result in results:
+            bbox_pred, bbox_cls_pred, bbox_dir_cls_pred = result[:, :7], result[:, 7:10], result[:, 10]
             pos_result = self.nms_filter(bbox_pred, bbox_cls_pred, bbox_dir_cls_pred)
             if pos_result is not None:
                 pos_results.append(pos_result) 

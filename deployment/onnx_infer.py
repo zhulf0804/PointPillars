@@ -89,7 +89,7 @@ def main(args):
                       input_npoints_per_pillar_name: to_numpy(npoints_per_pillar)}
         result = sess.run(None, input_data)
         result = [torch.from_numpy(item).cuda() for item in result]
-        result_filter = model_post([result])[0]
+        result_filter = model_post(result)[0]
     result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
     lidar_bboxes = result_filter['lidar_bboxes']
     labels, scores = result_filter['labels'], result_filter['scores']
@@ -110,7 +110,7 @@ def main(args):
                         input_npoints_per_pillar_name: to_numpy(npoints_per_pillar)}
             result = sess.run(None, input_data)
             result = [torch.from_numpy(item).cuda() for item in result]
-            result_filter = model_post([result])[0]
+            result_filter = model_post(result)[0]
             result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
     toc = time.time()
     avg_time = (toc - tic) * 1.0 / test_samples * 1000.0
