@@ -67,10 +67,34 @@ void trt_infer(std::vector<Voxel>& voxels, std::vector<std::vector<int>>& coors,
     CHECK(cudaMalloc(&inputCoorsBatchDevice, pillar_num * 4 * sizeof(int)));
     CHECK(cudaMalloc(&inputNpointsPerPillarDevice, pillar_num * sizeof(int)));
 
+    // 2d vector复制时需要注意, 分配临时主机内存
+    Point* tempHostMemoryPillar = new Point[pillar_num * 32];
+    Point* currentHostPtrPillar = tempHostMemoryPillar;
+    
+    // 一维化 Voxel 中的 Point 数据并复制到临时主机内存
+    for (const auto& voxel : voxels) {
+        memcpy(currentHostPtrPillar, voxel.points.data(), voxel.points.size() * sizeof(Point));
+        currentHostPtrPillar += voxel.points.size();
+    }
+    
+    // 2d vector复制时需要注意, 分配临时主机内存
+    int* tempHostMemoryCoor = new int[pillar_num * 4];
+    int* currentHostPtrCoor = tempHostMemoryCoor;
+    
+    // 一维化二维 vector 并复制到临时主机内存
+    for (const auto& coor : coors) {
+        memcpy(currentHostPtrCoor, coor.data(), coor.size() * sizeof(int));
+        currentHostPtrCoor += coor.size();
+    }
+
     // 将数据从主机复制到设备
-    CHECK(cudaMemcpy(inputPillarsDevice, voxels.data(), pillar_num * 32 * 4 * sizeof(float), cudaMemcpyHostToDevice));
-    CHECK(cudaMemcpy(inputCoorsBatchDevice, coors.data(), pillar_num * 4 * sizeof(int), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(inputPillarsDevice, tempHostMemoryPillar, pillar_num * 32 * 4 * sizeof(float), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(inputCoorsBatchDevice, tempHostMemoryCoor, pillar_num * 4 * sizeof(int), cudaMemcpyHostToDevice));
     CHECK(cudaMemcpy(inputNpointsPerPillarDevice, num_points_per_voxel.data(), pillar_num * sizeof(int), cudaMemcpyHostToDevice));
+    delete[] tempHostMemoryPillar;
+    delete[] tempHostMemoryCoor;
+    // delete[] currentHostPtrPillar;
+    // delete[] currentHostPtrCoor;
 
     // 分配输出设备内存
     void* outputDevice;
@@ -86,6 +110,28 @@ void trt_infer(std::vector<Voxel>& voxels, std::vector<std::vector<int>>& coors,
 
     // 执行推理
     context->enqueueV2(buffers, 0, nullptr);
+
+    // 如果需要，将输出数据从设备复制回主机
+    float* outputHost = new float[outputSize];
+    cudaMemcpy(outputHost, outputDevice, outputSize * sizeof(float), cudaMemcpyDeviceToHost);
+    // for(int i = 0; i < outputSize; i++){
+    //     std::cout << outputHost[i] << " ";
+    //     if (i > 0 && i % 11 == 0){
+    //         std::cout << std::endl;
+    //     }
+    // }
+
+    // 释放设备内存
+    cudaFree(inputPillarsDevice);
+    cudaFree(inputCoorsBatchDevice);
+    cudaFree(inputNpointsPerPillarDevice);
+    cudaFree(outputDevice);
+
+    // 释放主机上的输出数组
+    delete[] outputHost;
+
+    // 销毁context
+    context->destroy();
 
 }
 

@@ -1,5 +1,8 @@
-ToDo:
-- Trt Inference (ing)
+Code ToDo:
+- TRT check accuracy
+- Post processing (including nms)
+- TRT runtime
+- argc, argv
 
 ## 0. Performance comparison
 
