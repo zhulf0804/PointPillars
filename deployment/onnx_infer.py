@@ -96,25 +96,43 @@ def main(args):
     vis_pc(pc, bboxes=lidar_bboxes, labels=labels)
     result_array = np.concatenate([lidar_bboxes, scores[:, None], labels[:, None]], axis=-1)
     os.makedirs(os.path.dirname(args.saved_path), exist_ok=True)
-    np.savetxt(args.saved_path, result_array)
+    np.savetxt(args.saved_path, result_array, fmt='%.4f')
 
-    tic = time.time()
+    time_total, time_pre, time_model, time_post = 0.0, 0.0, 0.0, 0.0
     test_samples = 100
+    start_total_time = time.time()
     for i in range(test_samples):
         with torch.no_grad():
             if not args.no_cuda:
                 pc_torch = pc_torch.cuda()
+            start_pre_time = time.time()
             pillars, coors_batch, npoints_per_pillar = model_pre(batched_pts=[pc_torch])
+            end_pre_time = time.time()
+            time_pre += (end_pre_time - start_pre_time)
+
+            start_model_time = time.time()
             input_data = {input_pillars_name: to_numpy(pillars),
                         input_coors_batch_name: to_numpy(coors_batch),
                         input_npoints_per_pillar_name: to_numpy(npoints_per_pillar)}
             result = sess.run(None, input_data)
             result = [torch.from_numpy(item).cuda() for item in result]
+            end_model_time = time.time()
+            time_model += (end_model_time - start_model_time)
+
+            start_post_time = time.time()
             result_filter = model_post(result)[0]
             result_filter = keep_bbox_from_lidar_range(result_filter, pcd_limit_range)
-    toc = time.time()
-    avg_time = (toc - tic) * 1.0 / test_samples * 1000.0
-    print('ONNX inference time : {:.2f} ms'.format(avg_time))
+            end_post_time = time.time()
+            time_post += (end_post_time - start_post_time)
+    end_total_time = time.time()
+    time_total = end_total_time - start_total_time
+
+    avg_total_time = time_total * 1.0 / test_samples * 1000.0
+    avg_pre_time = time_pre * 1.0 / test_samples * 1000.0
+    avg_model_time = time_model * 1.0 / test_samples * 1000.0
+    avg_post_time = time_post * 1.0 / test_samples * 1000.0
+    print('ONNX total: {:.2f}ms, pre: {:.2f}ms, model: {:.2f}ms, post: {:.2f}ms'
+          .format(avg_total_time, avg_pre_time, avg_model_time, avg_post_time))
 
 
 if __name__ == '__main__':

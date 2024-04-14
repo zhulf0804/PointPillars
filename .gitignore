@@ -5,3 +5,6 @@ build/
 *_logs*
 tmp/
 results/
+.vscode/
+pretrained/*.trt
+pretrained/*.onnx

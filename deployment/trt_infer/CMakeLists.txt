@@ -26,7 +26,8 @@ set(TENSORRT_ROOT "/home/lifa/Drivers/TensorRT-7.2.3.4")
 include_directories(include ${CUDA_INCLUDE_DIRS} ${TENSORRT_ROOT}/include)
 
 # 创建一个变量，包含所有的源文件
-set(SOURCE_FILES trt_infer.cpp src/voxelization_trt.cpp)
+set(SOURCE_FILES trt_infer.cpp src/voxelization_trt.cpp src/utils.cpp 
+                 src/nms_trt.cpp)
 
 # 指定生成目标
 add_executable(trt_infer ${SOURCE_FILES})

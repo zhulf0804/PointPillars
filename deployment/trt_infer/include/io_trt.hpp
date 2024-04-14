@@ -1,11 +1,14 @@
-#include "common_trt.h"
+#ifndef IO_TRT_HPP
+#define IO_TRT_HPP
 #include <vector>
 #include <fstream>
 #include <iostream>
 #include <cstring>
+#include <iomanip>
 
+#include "common_trt.h"
 
-void point_cloud_filer(std::vector<Point>& points, std::vector<Point>& new_points){
+void pointCloudFiler(std::vector<Point>& points, std::vector<Point>& new_points){
     const float data_range[] = {0, -39.68, -3, 69.12, 39.68, 1};
     for (const auto& point : points){
         if (point.x > data_range[0] && point.x < data_range[3]
@@ -23,8 +26,7 @@ void point_cloud_filer(std::vector<Point>& points, std::vector<Point>& new_point
     // std::cout << "points size: " << new_points.size() << std::endl;
 }
 
-
-bool read_points(std::string file_path, std::vector<Point>& points){
+bool readPoints(std::string file_path, std::vector<Point>& points){
     // 打开文件
     std::ifstream file(file_path, std::ios::binary);
     if (!file) {
@@ -90,3 +92,25 @@ std::vector<char> readEngineFile(const std::string& enginePath)
 
     return buffer;
 }
+
+void writeFile(std::vector<Box3dfull>& bboxes, const std::string file_path){
+    std::ofstream outfile(file_path);
+
+    // 检查文件是否成功打开
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open file " << file_path << " for writing." << std::endl;
+        return;
+    }
+
+    outfile << std::fixed << std::setprecision(4); 
+    // 遍历 bboxes 中的每个元素，并写入文件
+    for (const auto& bbox_3d : bboxes) {
+        outfile << bbox_3d.x << " " << bbox_3d.y << " " << bbox_3d.z << " "
+                << bbox_3d.w << " " << bbox_3d.l << " " << bbox_3d.h << " "
+                << bbox_3d.theta << " " << bbox_3d.score << " " << bbox_3d.label << std::endl;
+    }
+
+    // 关闭文件
+    outfile.close();
+}
+#endif // IO_TRT_HPP

@@ -1,11 +1,6 @@
-Code ToDo:
-- TRT check accuracy
-- Post processing (including nms)
-- TRT runtime
-- argc, argv
+## 0. Performance
 
-## 0. Performance comparison
-
+#### 0.1 Test results
 - `GPU`: RTX 3080
 - `Cuda`: 11.1
 - `TensorRT`: 7.2.3.4
@@ -13,19 +8,29 @@ Similar detection results between PyTorch, ONNX and TRT inference are achieved. 
 
     Pictures(..)
 
-    |  | inferTime |
-    | :---: | :---: |
-    | PyTorch (57af3f) | 29.00ms |
-    | PyTorch () | 27.48ms |
-    | ONNX | 24.00ms |
-    | TensorRT | |
-    | TensorRT(fp16) | | 
+    |  | Voxelization (ms) | Inference (ms) | PostProcessing (ms) | Total (ms) |
+    | :---: | :---: | :---: | :---: | :---: |
+    | PyTorch | 5.78 (CUDA) | 17.15 | 4.45 |  27.39 |
+    | ONNX | 5.66 (CUDA)| 15.82 | 2.64 | 24.13 |
+    | TensorRT | 226.63(C++) | 20.6 | 0 | 248.87 |
+    | TensorRT(fp16) | 241.27(C++) | 14.02 | 0 | 256.91 |
+
+#### 0.2 Supported features
+- [X] PyTorch2ONNX (Support dynamic axes)
+- [X] ONNX2TRT (Support dynamic axes)
+- [X] TRT Inference (Support dynamic axes)
+- [X] Complete TRT/C++ detection pipline (including voxelizaion and post-processing)
+- [ ] Voxelization acceleration
+- [ ] Code unification with the main branch
 
 ## 1. PyTorch2ONNX
 
 #### 1.1 PyTorch2ONNX
 
 ```
+cd PointPillarsPointPillars/ops
+python setup.py develop
+
 cd PointPillars/deployment
 python pytorch2onnx.py --ckpt ../pretrained/epoch_160.pth
 ```
@@ -46,7 +51,10 @@ python pytorch_infer.py --ckpt ../pretrained/epoch_160.pth --pc_path ../dataset/
 ## 2. ONNX2TRT
 #### 2.1 ONNX2TRT
 ```
-/your_path/TensorRT-7.2.3.4/bin/trtexec --onnx=../pretrained/model.onnx --saveEngine=../pretrained/model.trt --verbose --dumpProfile
+/your_path/TensorRT-7.2.3.4/bin/trtexec --onnx=../pretrained/model.onnx --saveEngine=../pretrained/model.trt \
+--minShapes=input_pillars:200x32x4,input_coors_batch:200x4,input_npoints_per_pillar:200 \
+--maxShapes=input_pillars:40000x32x4,input_coors_batch:40000x4,input_npoints_per_pillar:40000 \
+--optShapes=input_pillars:5000x32x4,input_coors_batch:5000x4,input_npoints_per_pillar:5000
 ```
 
 #### 2.2 TRT inference
@@ -56,6 +64,10 @@ mkdir build
 cd build
 cmake ..
 make
+
+./trt_infer your_point_cloud_path your_trt_path
+e.g. 
+./trt_infer ../../../dataset/demo_data/val/000134.bin ../../../pretrained/model.trt
 ```
 
 
@@ -125,4 +137,35 @@ attribute {
     canvas[cur_coors_flat] = cur_features
     canvas = canvas.view(self.y_l, self.x_l, self.out_channel)
     canvas = canvas.permute(2, 0, 1).contiguous()
+    ```
+
+3. **Parameter check failed at: engine.cpp::resolveSlots::1318, condition: allInputDimensionsSpecified(routine)**
+
+    **Solution:** Refer to https://forums.developer.nvidia.com/t/tensorrt-error-parameter-check-failed-at-engine-cpp-1318-condition-allinputdimensionsspecified-routine/185081/7 
+    ```
+    // 设置输入张量的维度
+    nvinfer1::Dims inputPilllarDims, inputCoorsDims, inputNpointsPerPillarDims; // 您期望的输入维度
+    inputPilllarDims.nbDims = 3; // 维度数
+    inputPilllarDims.d[0] = pillar_num; // 每个维度的大小
+    inputPilllarDims.d[1] = max_points;
+    inputPilllarDims.d[2] = sizeof(Point) / sizeof(float);
+
+    inputCoorsDims.nbDims = 2; // 维度数
+    inputCoorsDims.d[0] = pillar_num; // 每个维度的大小
+    inputCoorsDims.d[1] = 4;
+
+    inputNpointsPerPillarDims.nbDims = 1; // 维度数
+    inputNpointsPerPillarDims.d[0] = pillar_num; // 每个维度的大小
+
+    // 在推理之前设置输入张量的维度
+    if (!context->setBindingDimensions(inputPillarsIndex, inputPilllarDims)) {
+        // 处理错误，设置维度失败
+        std::cout << "setBindingDimensions error \n";
+    }
+    if (!context->setBindingDimensions(inputCoorsBatchIndex, inputCoorsDims)) {
+        std::cout << "setBindingDimensions error \n";
+    }
+    if (!context->setBindingDimensions(inputNpointsPerPillarIndex, inputNpointsPerPillarDims)) {
+        std::cout << "setBindingDimensions error \n";
+    }
     ```

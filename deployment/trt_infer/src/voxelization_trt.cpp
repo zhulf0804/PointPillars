@@ -1,5 +1,4 @@
-#include "voxelization_trt.hpp"
-
+#include "voxelization_trt.h"
 
 void voxelize(const std::vector<Point>& points, const std::vector<float>& voxel_size, 
               const std::vector<float>& coors_range, int max_points, int max_voxels, 
@@ -56,14 +55,33 @@ void voxelize(const std::vector<Point>& points, const std::vector<float>& voxel_
         }
     }
     
+    /* 
+    // check function voxelize
+    std::cout << "voxels size: " << voxels.size() << std::endl;
+    std::cout << "coors size: " << coors.size() << std::endl;
+    std::cout << "num_points_per_voxel size: " << num_points_per_voxel.size() << std::endl;
+
+    // 输出结果
+    for (const auto& voxel : voxels) {
+        for (const auto& point : voxel.points) {
+            std::cout << point.x << " " << point.y << " " << point.z << " " << point.feature << std::endl;
+        }
+    }
+    for (const auto& coor : coors) {
+        std::cout << coor[0] << " " << coor[1] << " " << coor[2] << std::endl;
+    }
+    for (const auto& num : num_points_per_voxel) {
+        std::cout << num << std::endl;
+    }
+    */
+
     return;
 }
 
-void pad_coors(std::vector<std::vector<int>>& coors, std::vector<std::vector<int>>& padded_coors){
+void padCoors(std::vector<std::vector<int>>& coors, std::vector<std::vector<int>>& padded_coors){
     for (auto& coor : coors){
         std::vector<int> padded_coor = {0};
         padded_coor.insert(padded_coor.end(), coor.begin(), coor.end());
         padded_coors.push_back(padded_coor);
     }
 }
-
