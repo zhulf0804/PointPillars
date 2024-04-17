@@ -167,6 +167,82 @@ void trtInfer(std::vector<Voxel>& voxels, std::vector<std::vector<int>>& coors, 
     cudaFree(outputDevice);
 }
 
+void trtInfer(float* d_voxels, int* d_coors, int* d_num_points_per_voxel, const int pillar_num,
+              int& max_points, nvinfer1::ICudaEngine* engine, nvinfer1::IExecutionContext* context, 
+              std::vector<float>& output){
+
+    // 获取输入和输出的绑定索引
+    int inputPillarsIndex = engine->getBindingIndex("input_pillars");
+    int inputCoorsBatchIndex = engine->getBindingIndex("input_coors_batch");
+    int inputNpointsPerPillarIndex = engine->getBindingIndex("input_npoints_per_pillar");
+    int outputIndex = engine->getBindingIndex("output_x");
+
+    // 使用CUDA分配设备内存
+    void* inputPillarsDevice;
+    void* inputCoorsBatchDevice;
+    void* inputNpointsPerPillarDevice;
+    CHECK(cudaMalloc(&inputPillarsDevice, pillar_num * max_points * sizeof(Point)));
+    CHECK(cudaMalloc(&inputCoorsBatchDevice, pillar_num * 4 * sizeof(int)));
+    CHECK(cudaMalloc(&inputNpointsPerPillarDevice, pillar_num * sizeof(int)));
+
+    // 将数据从设备复制到设备
+    CHECK(cudaMemcpy(inputPillarsDevice, d_voxels, pillar_num * max_points * sizeof(Point), cudaMemcpyDeviceToDevice));
+    CHECK(cudaMemcpy(inputCoorsBatchDevice, d_coors, pillar_num * 4 * sizeof(int), cudaMemcpyDeviceToDevice));
+    CHECK(cudaMemcpy(inputNpointsPerPillarDevice, d_num_points_per_voxel, pillar_num * sizeof(int), cudaMemcpyDeviceToDevice));
+    cudaFree(d_voxels);
+    cudaFree(d_coors);
+    cudaFree(d_num_points_per_voxel);
+
+    // 分配输出设备内存
+    void* outputDevice;
+    CHECK(cudaMalloc(&outputDevice, output.size() * sizeof(float))); 
+
+    // 设置输入张量的维度
+    nvinfer1::Dims inputPilllarDims, inputCoorsDims, inputNpointsPerPillarDims; // 您期望的输入维度
+    inputPilllarDims.nbDims = 3; // 维度数
+    inputPilllarDims.d[0] = pillar_num; // 每个维度的大小
+    inputPilllarDims.d[1] = max_points;
+    inputPilllarDims.d[2] = sizeof(Point) / sizeof(float);
+
+    inputCoorsDims.nbDims = 2; // 维度数
+    inputCoorsDims.d[0] = pillar_num; // 每个维度的大小
+    inputCoorsDims.d[1] = 4;
+
+    inputNpointsPerPillarDims.nbDims = 1; // 维度数
+    inputNpointsPerPillarDims.d[0] = pillar_num; // 每个维度的大小
+
+    // 在推理之前设置输入张量的维度
+    if (!context->setBindingDimensions(inputPillarsIndex, inputPilllarDims)) {
+        // 处理错误，设置维度失败
+        std::cout << "setBindingDimensions error \n";
+    }
+    if (!context->setBindingDimensions(inputCoorsBatchIndex, inputCoorsDims)) {
+        std::cout << "setBindingDimensions error \n";
+    }
+    if (!context->setBindingDimensions(inputNpointsPerPillarIndex, inputNpointsPerPillarDims)) {
+        std::cout << "setBindingDimensions error \n";
+    }
+
+    // 创建输入和输出数据缓冲区指针数组
+    void* buffers[4];
+    buffers[inputPillarsIndex] = inputPillarsDevice;
+    buffers[inputCoorsBatchIndex] = inputCoorsBatchDevice;
+    buffers[inputNpointsPerPillarIndex] = inputNpointsPerPillarDevice;
+    buffers[outputIndex] = outputDevice;
+
+    // 执行推理
+    context->enqueueV2(buffers, 0, nullptr);
+
+    // 如果需要，将输出数据从设备复制回主机
+    cudaMemcpy(output.data(), outputDevice, output.size() * sizeof(float), cudaMemcpyDeviceToHost);
+    
+    // 释放设备内存
+    cudaFree(inputPillarsDevice);
+    cudaFree(inputCoorsBatchDevice);
+    cudaFree(inputNpointsPerPillarDevice);
+    cudaFree(outputDevice);
+}
+
 void postProcessing(std::vector<float>& output, int& num_class, float& nms_thr, float& score_thr, 
                      int& max_num, std::vector<Box3dfull>& bboxes_full){
     std::vector<Box2d> bboxes_2d;
@@ -208,7 +284,7 @@ void postProcessing(std::vector<float>& output, int& num_class, float& nms_thr, 
 }
 
 void runTime(std::vector<Point>& points, int& test_number, nvinfer1::ICudaEngine* engine, 
-             nvinfer1::IExecutionContext* context){
+             nvinfer1::IExecutionContext* context, const int NDim){
     std::vector<float> voxel_size = {0.16, 0.16, 4};
     std::vector<float> coors_range = {0, -39.68, -3, 69.12, 39.68, 1};
     int max_points = 32;
@@ -224,22 +300,31 @@ void runTime(std::vector<Point>& points, int& test_number, nvinfer1::ICudaEngine
 
     auto start_total = std::chrono::high_resolution_clock::now(); 
     for (int i = 0; i < test_number; i++){
-        std::vector<Voxel> voxels;
-        std::vector<std::vector<int>> coors;
-        std::vector<int> num_points_per_voxel;
+        int* d_num_points_per_voxel = nullptr;
+        cudaMalloc((void**)&d_num_points_per_voxel, max_voxels * sizeof(int));
+        cudaMemset(d_num_points_per_voxel, 0, max_voxels * sizeof(int));
+        float* d_voxels = nullptr;
+        cudaMalloc((void**)&d_voxels, max_voxels * max_points * sizeof(Point));
+        cudaMemset(d_voxels, 0.f, max_voxels * max_points * sizeof(Point));
+        int* d_coors = nullptr;
+        cudaMalloc((void**)&d_coors, max_voxels * NDim * sizeof(int));
+        cudaMemset(d_coors, 0, max_voxels * NDim * sizeof(int));
 
         // 1. voxelization
         auto start_voxelization = std::chrono::high_resolution_clock::now();
-        voxelize(points, voxel_size, coors_range, max_points, max_voxels, voxels, coors, num_points_per_voxel);
-        std::vector<std::vector<int>> padded_coors;
-        padCoors(coors, padded_coors);
+        int voxel_num = voxelizeGpu(points, voxel_size, coors_range, max_points, max_voxels, d_voxels, d_coors, d_num_points_per_voxel, NDim);
+        int* d_coors_padded = nullptr;
+        cudaMalloc((void**)&d_coors_padded, voxel_num * (NDim + 1) * sizeof(int));
+        cudaMemset(d_coors_padded, 0, voxel_num * (NDim + 1) * sizeof(int));
+        padCoorsGPU(d_coors, d_coors_padded, voxel_num);
+        cudaFree(d_coors);
         auto end_voxelization = std::chrono::high_resolution_clock::now();
         voxelization_time += std::chrono::duration_cast<std::chrono::milliseconds>(end_voxelization - start_voxelization);
 
         // 2. trt inference
         auto start_inference = std::chrono::high_resolution_clock::now();
         std::vector<float> output(num_box * (7 + num_class + 1));
-        trtInfer(voxels, padded_coors, num_points_per_voxel, max_points, engine, context, output);
+        trtInfer(d_voxels, d_coors_padded, d_num_points_per_voxel, voxel_num, max_points, engine, context, output);
         auto end_inference = std::chrono::high_resolution_clock::now();
         inference_time += std::chrono::duration_cast<std::chrono::milliseconds>(end_inference - start_inference);
         
@@ -281,15 +366,25 @@ int main(int argc, char *argv[]) {
     std::vector<float> coors_range = {0, -39.68, -3, 69.12, 39.68, 1};
     int max_points = 32;
     int max_voxels = 40000;
-    
-    std::vector<Voxel> voxels;
-    std::vector<std::vector<int>> coors;
-    std::vector<int> num_points_per_voxel;
+    int NDim = 3;
+
+    int* d_num_points_per_voxel = nullptr;
+    cudaMalloc((void**)&d_num_points_per_voxel, max_voxels * sizeof(int));
+    cudaMemset(d_num_points_per_voxel, 0, max_voxels * sizeof(int));
+    float* d_voxels = nullptr;
+    cudaMalloc((void**)&d_voxels, max_voxels * max_points * sizeof(Point));
+    cudaMemset(d_voxels, 0.f, max_voxels * max_points * sizeof(Point));
+    int* d_coors = nullptr;
+    cudaMalloc((void**)&d_coors, max_voxels * NDim * sizeof(int));
+    cudaMemset(d_coors, 0, max_voxels * NDim * sizeof(int));
 
     // 1. voxelization
-    voxelize(points, voxel_size, coors_range, max_points, max_voxels, voxels, coors, num_points_per_voxel);
-    std::vector<std::vector<int>> padded_coors;
-    padCoors(coors, padded_coors);
+    int voxel_num = voxelizeGpu(points, voxel_size, coors_range, max_points, max_voxels, d_voxels, d_coors, d_num_points_per_voxel, NDim);
+    int* d_coors_padded = nullptr;
+    cudaMalloc((void**)&d_coors_padded, voxel_num * (NDim + 1) * sizeof(int));
+    cudaMemset(d_coors_padded, 0, voxel_num * (NDim + 1) * sizeof(int));
+    padCoorsGPU(d_coors, d_coors_padded, voxel_num);
+    cudaFree(d_coors);
 
     // 2. trt inference
     const std::string trt_path = argv[2];
@@ -298,7 +393,7 @@ int main(int argc, char *argv[]) {
     auto components = initializeTensorRTComponents(trt_path);
     nvinfer1::ICudaEngine* engine = components.first;
     nvinfer1::IExecutionContext* context = components.second;
-    trtInfer(voxels, padded_coors, num_points_per_voxel, max_points, engine, context, output);
+    trtInfer(d_voxels, d_coors_padded, d_num_points_per_voxel, voxel_num, max_points, engine, context, output);
     
     // 3. post processing
     float nms_thr = 0.01, score_thr = 0.1;
@@ -311,7 +406,7 @@ int main(int argc, char *argv[]) {
 
     // 5. runtime 
     int test_number = 100;
-    runTime(points, test_number, engine, context);
+    runTime(points, test_number, engine, context, NDim);
 
     context->destroy();
     engine->destroy();

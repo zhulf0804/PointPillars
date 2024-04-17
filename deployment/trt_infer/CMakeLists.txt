@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 # 设置项目名称
-project(trt_infer)
+project(trt_infer LANGUAGES CXX CUDA)
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 11)
@@ -27,7 +27,7 @@ include_directories(include ${CUDA_INCLUDE_DIRS} ${TENSORRT_ROOT}/include)
 
 # 创建一个变量，包含所有的源文件
 set(SOURCE_FILES trt_infer.cpp src/voxelization_trt.cpp src/utils.cpp 
-                 src/nms_trt.cpp)
+                 src/nms_trt.cpp src/voxelization_trt.cu)
 
 # 指定生成目标
 add_executable(trt_infer ${SOURCE_FILES})
