@@ -6,6 +6,12 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
 - Only one detection network (PointPillars) was implemented in this repo, so the code may be more easy to read. 
 - Sincere thanks for the great open-source architectures [mmcv](https://github.com/open-mmlab/mmcv), [mmdet](https://github.com/open-mmlab/mmdetection) and [mmdet3d](https://github.com/open-mmlab/mmdetection3d), which helps me to learn 3D detetion and implement this repo.
 
+## News
+
+- **2024-04** Exporting PointPillars to ONNX & TensorRT is supported on branch [feature/deployment](https://github.com/zhulf0804/PointPillars/tree/feature/deployment).
+
+    ![](./figures/pytorch_trt.png)
+
 ## mAP on KITTI validation set (Easy, Moderate, Hard)
 
 | Repo | Metric | Overall | Pedestrian | Cyclist | Car |
