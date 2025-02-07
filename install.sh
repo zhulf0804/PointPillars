@@ -3,5 +3,4 @@ pip3 install torch torchvision torchaudio --index-url https://download.pytorch.o
 conda install conda-forge::gcc_linux-64=10 conda-forge::gxx_linux-64=10 -y
 conda install numba::numba -y
 conda install conda-forge::opencv -y
-#conda install open3d-admin::open3d -y
 pip install open3d -U
