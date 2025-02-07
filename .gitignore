@@ -5,3 +5,4 @@ build/
 *_logs*
 tmp/
 results/
+.idea
