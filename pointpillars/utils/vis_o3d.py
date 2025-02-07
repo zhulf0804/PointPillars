@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 import os
-from utils import bbox3d2corners
+from pointpillars.utils import bbox3d2corners
 
 
 COLORS = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0]]
