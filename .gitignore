@@ -5,4 +5,5 @@ build/
 *_logs*
 tmp/
 results/
+*.sh
 .idea

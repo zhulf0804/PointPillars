@@ -25,9 +25,5 @@ setup(
         )
     ],
     cmdclass={'build_ext': BuildExtension},
-    install_requires=[
-        'torch',
-        'numpy'
-    ],
     zip_safe=False
 )

@@ -3,7 +3,7 @@ import numba
 import numpy as np
 import os
 import pdb
-from utils import bbox3d2bevcorners, box_collision_test, read_points, \
+from pointpillars.utils import bbox3d2bevcorners, box_collision_test, read_points, \
     remove_pts_in_bboxes, limit_period
 
 

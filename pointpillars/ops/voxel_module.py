@@ -2,7 +2,7 @@
 
 import torch
 import torch.nn as nn
-from .voxel_op import hard_voxelize
+from pointpillars.ops.voxel_op import hard_voxelize
 
 
 class _Voxelization(torch.autograd.Function):
