@@ -5,11 +5,11 @@ import torch
 import pdb
 from tqdm import tqdm
 
-from utils import setup_seed, keep_bbox_from_image_range, \
+from pointpillars.utils import setup_seed, keep_bbox_from_image_range, \
     keep_bbox_from_lidar_range, write_pickle, write_label, \
     iou2d, iou3d_camera, iou_bev
-from dataset import Kitti, get_dataloader
-from model import PointPillars
+from pointpillars.dataset import Kitti, get_dataloader
+from pointpillars.model import PointPillars
 
 
 def get_score_thresholds(tp_scores, total_num_valid_gt, num_sample_pts=41):

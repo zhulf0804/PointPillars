@@ -1,7 +1,7 @@
 # This file is modified from https://github.com/open-mmlab/mmdetection3d/blob/master/mmdet3d/ops/iou3d/iou3d_utils.py
 
 import torch
-from .iou3d_op import boxes_overlap_bev_gpu, boxes_iou_bev_gpu, nms_gpu, nms_normal_gpu
+from pointpillars.ops.iou3d_op import boxes_overlap_bev_gpu, boxes_iou_bev_gpu, nms_gpu, nms_normal_gpu
 
 
 def boxes_overlap_bev(boxes_a, boxes_b):

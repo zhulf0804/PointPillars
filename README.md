@@ -32,11 +32,15 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
 ![](./figures/pc_pred_000134.png)
 ![](./figures/img_3dbbox_000134.png)
 
-## [Compile] 
+## [Install] 
+
+Install PointPillars as a python package and all its dependencies as follows:
 
 ```
-cd ops
-python setup.py develop
+cd PointPillars/
+pip install -r requirements.txt
+python setup.py build_ext --inplace
+pip install .
 ```
 
 ## [Datasets]

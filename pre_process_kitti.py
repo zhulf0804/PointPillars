@@ -8,7 +8,7 @@ import sys
 CUR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(CUR)
 
-from utils import read_points, write_points, read_calib, read_label, \
+from pointpillars.utils import read_points, write_points, read_calib, read_label, \
     write_pickle, remove_outside_points, get_points_num_in_bbox, \
     points_in_bboxes_v2
 
@@ -35,7 +35,7 @@ def judge_difficulty(annotation_dict):
 def create_data_info_pkl(data_root, data_type, prefix, label=True, db=False):
     sep = os.path.sep
     print(f"Processing {data_type} data..")
-    ids_file = os.path.join(CUR, 'dataset', 'ImageSets', f'{data_type}.txt')
+    ids_file = os.path.join(CUR, 'pointpillars', 'dataset', 'ImageSets', f'{data_type}.txt')
     with open(ids_file, 'r') as f:
         ids = [id.strip() for id in f.readlines()]
     

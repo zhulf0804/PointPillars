@@ -7,8 +7,8 @@ import sys
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.dirname(BASE))
 
-from utils import read_pickle, read_points, bbox_camera2lidar
-from dataset import point_range_filter, data_augment
+from pointpillars.utils import read_pickle, read_points, bbox_camera2lidar
+from pointpillars.dataset import point_range_filter, data_augment
 
 
 class BaseSampler():

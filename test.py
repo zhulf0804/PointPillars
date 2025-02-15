@@ -5,11 +5,11 @@ import os
 import torch
 import pdb
 
-from utils import setup_seed, read_points, read_calib, read_label, \
+from pointpillars.utils import setup_seed, read_points, read_calib, read_label, \
     keep_bbox_from_image_range, keep_bbox_from_lidar_range, vis_pc, \
     vis_img_3d, bbox3d2corners_camera, points_camera2image, \
     bbox_camera2lidar
-from model import PointPillars
+from pointpillars.model import PointPillars
 
 
 def point_range_filter(pts, point_range=[0, -39.68, -3, 69.12, 39.68, 1]):
