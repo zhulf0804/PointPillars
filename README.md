@@ -8,6 +8,7 @@ A Simple PointPillars PyTorch Implenmentation for 3D Lidar(KITTI) Detection. [[Z
 
 ## News
 
+- **2025-02** Making PointPillars a python package out of the code is supported.
 - **2024-04** Exporting PointPillars to ONNX & TensorRT is supported on branch [feature/deployment](https://github.com/zhulf0804/PointPillars/tree/feature/deployment).
 
     ![](./figures/pytorch_trt.png)
@@ -122,22 +123,24 @@ python test.py --ckpt pretrained/epoch_160.pth --pc_path your_pc_path --calib_pa
 e.g. 
 a. [infer on val set 000134]
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/val/000134.bin
+python test.py --ckpt pretrained/epoch_160.pth --pc_path pointpillars/dataset/demo_data/val/000134.bin
 
 or
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/val/000134.bin \ 
-               --calib_path dataset/demo_data/val/000134.txt --img_path dataset/demo_data/val/000134.png \ 
-               --gt_path dataset/demo_data/val/000134_gt.txt
+python test.py --ckpt pretrained/epoch_160.pth --pc_path pointpillars/dataset/demo_data/val/000134.bin \
+               --calib_path pointpillars/dataset/demo_data/val/000134.txt \
+               --img_path pointpillars/dataset/demo_data/val/000134.png \
+               --gt_path pointpillars/dataset/demo_data/val/000134_gt.txt
 
 b. [infer on test set 000002]
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/test/000002.bin
+python test.py --ckpt pretrained/epoch_160.pth --pc_path pointpillars/dataset/demo_data/test/000002.bin
 
 or 
 
-python test.py --ckpt pretrained/epoch_160.pth --pc_path dataset/demo_data/test/000002.bin \ 
-               --calib_path dataset/demo_data/test/000002.txt --img_path dataset/demo_data/test/000002.png
+python test.py --ckpt pretrained/epoch_160.pth --pc_path pointpillars/dataset/demo_data/test/000002.bin \
+               --calib_path pointpillars/dataset/demo_data/test/000002.txt \
+               --img_path pointpillars/dataset/demo_data/test/000002.png
 ```
 
 ## Acknowledements
